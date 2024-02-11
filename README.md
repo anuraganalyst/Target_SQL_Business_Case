@@ -1,4 +1,5 @@
-! [Target] (https://www.google.com/url?sa=i&url=https%3A%2F%2Ftarget.wd5.myworkdayjobs.com%2Ftargetcareers&psig=AOvVaw0mgoLMZV9Z2TmKw4C5uMAH&ust=1707709702517000&source=images&cd=vfe&opi=89978449&ved=0CBMQjRxqFwoTCIDF-8OwooQDFQAAAAAdAAAAABAE)
+
+![logo](https://github.com/AnuragAnalyst/Target_SQL_Business_Case/assets/92114108/e4998160-5b92-4e17-8cd8-759c71dc15ff)
 
 # Target_SQL_Business_Case
-This project aims at finding patterns and gain insights on Target Business Operation in the Brazil Market.
+This project aims to find patterns and gain insights into Target Business Operations in the Brazil Market.
