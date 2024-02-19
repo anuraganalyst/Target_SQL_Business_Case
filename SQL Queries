@@ -1,0 +1,280 @@
+# Import the dataset and do the usual exploratory analysis steps like checking the structure & characteristics of the dataset:
+1.	Data type of all columns in the "customers" table.
+
+SELECT COLUMN_NAME, data_type 
+FROM tensile-spirit-350306.target_sql.INFORMATION_SCHEMA.COLUMNS 
+WHERE table_name = 'customers';
+
+2.	Get the time range between which the orders were placed.
+
+SELECT MIN(order_purchase_timestamp) AS order_start, 
+MAX(order_purchase_timestamp) AS order_end
+FROM tensile-spirit-350306.target_sql.orders;
+
+3.	Count the Cities & States of customers who ordered during the given period.
+
+SELECT COUNT(DISTINCT c.customer_city) AS Total_Cities,
+COUNT(DISTINCT c.customer_state) AS Total_States
+FROM tensile-spirit-350306.target_sql.customers AS c
+INNER JOIN tensile-spirit-350306.target_sql.orders AS o ON
+c.customer_id=o.customer_id;
+
+# In-depth Exploration:
+1.	Is there a growing trend in the no. of orders placed over the past years?
+
+SELECT 
+EXTRACT(Year FROM order_purchase_timestamp) AS Year,
+COUNT(order_id) AS order_count
+FROM tensile-spirit-350306.target_sql.orders
+GROUP BY Year
+ORDER BY Year;
+
+2.	Can we see some kind of monthly seasonality in terms of the no. of orders being placed?
+
+SELECT 
+EXTRACT(Month FROM order_purchase_timestamp) AS Month_Num,
+FORMAT_TIMESTAMP('%B', order_purchase_timestamp) AS Month_Name,
+COUNT(order_id) AS order_count
+FROM tensile-spirit-350306.target_sql.orders
+GROUP BY Month_Num,Month_Name
+ORDER BY Month_Num Asc,Month_Name ASC;
+
+3.	During what time of the day, do the Brazilian customers mostly place their orders? (Dawn, Morning, Afternoon or Night)
+* 0-6 hrs: Dawn
+* 7-12 hrs: Mornings
+* 13-18 hrs: Afternoon
+* 19-23 hrs: Night
+
+SELECT
+CASE
+WHEN EXTRACT(Hour FROM order_purchase_timestamp) BETWEEN 0 AND 6 THEN 'Dawn'
+WHEN EXTRACT(Hour FROM order_purchase_timestamp) BETWEEN 7 AND 12 THEN 'Mornings'
+WHEN EXTRACT(Hour FROM order_purchase_timestamp) BETWEEN 13 AND 18 THEN 'Afternoon'
+WHEN EXTRACT(Hour FROM order_purchase_timestamp) BETWEEN 19 AND 23 THEN 'Night'
+END AS Time_shift,
+COUNT(order_id) AS order_count
+FROM tensile-spirit-350306.target_sql.orders
+GROUP BY Time_shift;
+
+# Evolution of E-commerce orders in the Brazil region:
+1.	Get the month-on-month no. of orders placed in each state.
+
+SELECT
+FORMAT_TIMESTAMP('%B', order_purchase_timestamp) AS Month_Name,
+COUNT(order_id) AS order_count,
+customer_state
+FROM tensile-spirit-350306.target_sql.orders AS o inner join tensile-spirit-350306.target_sql.customers AS c
+ON o.customer_id = c.customer_id
+GROUP BY Month_Name, customer_state;
+
+2.	How are the customers distributed across all the states?
+
+SELECT 
+customer_state,
+COUNT(customer_id) AS Customer_cnt
+FROM tensile-spirit-350306.target_sql.customers
+GROUP BY customer_state
+ORDER BY customer_state;
+
+# Impact on Economy: Analyze the money movement by e-commerce by looking at order prices, freight and others.
+1.	Get the % increase in the cost of orders from the year 2017 to 2018 (include months between Jan to Aug only).
+I have used the "payment_value" column in the payments table to get the cost of orders.
+
+WITH t AS(SELECT 
+EXTRACT(Year FROM o.order_purchase_timestamp) AS order_year,
+FORMAT_TIMESTAMP('%B', order_purchase_timestamp) AS order_Month,
+SUM(p.payment_value) AS total_payment
+FROM tensile-spirit-350306.target_sql.orders AS o inner join tensile-spirit-350306.target_sql.payments AS p on o.order_id=p.order_id
+WHERE EXTRACT(Year FROM o.order_purchase_timestamp) IN(2017,2018) AND EXTRACT(Month FROM o.order_purchase_timestamp) BETWEEN 1 AND 8
+GROUP BY EXTRACT(Year FROM o.order_purchase_timestamp),FORMAT_TIMESTAMP('%B', order_purchase_timestamp))
+
+SELECT 
+y_2017.order_Month,
+((y_2018.total_payment-y_2017.total_payment)/y_2017.total_payment)*100 AS percentage_increase
+FROM t AS y_2017 JOIN t AS y_2018 ON y_2017.order_Month = y_2018.order_Month and y_2017.order_year < y_2018.order_year;
+
+2.	Calculate the Total & Average value of order price for each state.
+
+With t AS (
+SELECT
+i.order_id,
+o.customer_id,
+sum(i.price) AS total_order_price
+FROM tensile-spirit-350306.target_sql.order_items AS i inner join tensile-spirit-350306.target_sql.orders AS o
+on i.order_id=o.order_id
+GROUP BY i.order_id, o.customer_id)
+
+SELECT c.customer_state,
+sum(t.total_order_price) AS total_price,
+AVG(t.total_order_price) AS avg_price
+FROM tensile-spirit-350306.target_sql.customers c INNER JOIN t on
+c.customer_id = t.customer_id
+GROUP BY customer_state; 
+
+3.	Calculate the Total & Average value of order freight for each state.
+
+With t AS (
+SELECT
+i.order_id,
+o.customer_id,
+sum(i.freight_value) AS total_freight
+FROM tensile-spirit-350306.target_sql.order_items AS i inner join tensile-spirit-350306.target_sql.orders AS o
+on i.order_id=o.order_id
+GROUP BY i.order_id, o.customer_id)
+
+SELECT c.customer_state,
+sum(t.total_freight) AS total_order_freight,
+AVG(t.total_freight) AS avg_order_freight
+FROM tensile-spirit-350306.target_sql.customers c INNER JOIN t on
+c.customer_id = t.customer_id
+GROUP BY customer_state; 
+
+#	Analysis based on sales, freight, and delivery time.
+1.	Find the no. of days taken to deliver each order from the order’s purchase date as delivery time.
+Also, calculate the difference (in days) between the estimated & actual delivery date of an order.
+Do this in a single query.
+
+You can calculate the delivery time and the difference between the estimated & actual delivery date using the given formula:
+* time_to_deliver = order_delivered_customer_date - order_purchase_timestamp
+* diff_estimated_delivery = order_estimated_delivery_date - order_delivered_customer_date
+
+SELECT
+order_id,
+DATE_DIFF(order_delivered_customer_date, order_purchase_timestamp, DAY) AS time_to_deliver,
+DATE_DIFF(order_estimated_delivery_date, order_delivered_customer_date, DAY) AS diff_estimated_delivery
+FROM tensile-spirit-350306.target_sql.orders
+WHERE order_status = 'delivered'
+LIMIT 10;
+
+2.	Find out the top 5 states with the highest & lowest average freight value.
+
+With t AS (
+SELECT
+i.order_id,
+o.customer_id,
+sum(i.freight_value) AS total_freight
+FROM tensile-spirit-350306.target_sql.order_items AS i inner join tensile-spirit-350306.target_sql.orders AS o
+on i.order_id=o.order_id
+GROUP BY i.order_id, o.customer_id)
+
+SELECT c.customer_state,
+AVG(t.total_freight) AS highiest_avg_order_freight
+FROM tensile-spirit-350306.target_sql.customers c INNER JOIN t on
+c.customer_id = t.customer_id
+GROUP BY customer_state
+ORDER BY highiest_avg_order_freight DESC
+LIMIT 5; 
+
+###-----------------------------------------------##----------------------------------------------------------
+With t AS (
+SELECT
+i.order_id,
+o.customer_id,
+sum(i.freight_value) AS total_freight
+FROM tensile-spirit-350306.target_sql.order_items AS i inner join tensile-spirit-350306.target_sql.orders AS o
+on i.order_id=o.order_id
+GROUP BY i.order_id, o.customer_id)
+
+SELECT c.customer_state,
+AVG(t.total_freight) AS lowest_avg_order_freight
+FROM tensile-spirit-350306.target_sql.customers c INNER JOIN t on
+c.customer_id = t.customer_id
+GROUP BY customer_state
+ORDER BY lowest_avg_order_freight ASC
+LIMIT 5; 
+
+3.	Find out the top 5 states with the highest & lowest average delivery time.
+
+With cte AS
+(
+SELECT
+order_id,
+customer_id,
+SUM(DATE_DIFF(order_delivered_customer_date, order_purchase_timestamp, DAY)) AS time_to_deliver
+FROM tensile-spirit-350306.target_sql.orders
+WHERE order_status = 'delivered'
+GROUP BY order_id,customer_id
+)
+
+SELECT
+c.customer_state,
+AVG(cte.time_to_deliver) AS highiest_avg_delivery_time
+FROM tensile-spirit-350306.target_sql.customers AS c INNER JOIN cte on c.customer_id= cte.customer_id
+GROUP BY c.customer_state
+ORDER BY highiest_avg_delivery_time DESC
+LIMIT 5;
+##-----------------------------------------------------------------------------------------------------------------------
+With cte AS
+(
+SELECT
+order_id,
+customer_id,
+SUM(DATE_DIFF(order_delivered_customer_date, order_purchase_timestamp, DAY)) AS time_to_deliver
+FROM tensile-spirit-350306.target_sql.orders
+WHERE order_status = 'delivered'
+GROUP BY order_id,customer_id
+)
+
+SELECT
+c.customer_state,
+AVG(cte.time_to_deliver) AS lowest_avg_delivery_time
+FROM tensile-spirit-350306.target_sql.customers AS c INNER JOIN cte on c.customer_id= cte.customer_id
+GROUP BY c.customer_state
+ORDER BY lowest_avg_delivery_time ASC
+LIMIT 5;
+
+4.	Find out the top 5 states where the order delivery is really fast as compared to the estimated date of delivery.
+I have used the difference between the averages of actual & estimated delivery dates to figure out how fast the delivery was for each state.
+
+WITH t AS 
+(
+  SELECT order_id,
+  customer_id,
+  SUM(DATE_DIFF(order_estimated_delivery_date, order_delivered_customer_date, DAY)) AS diff_estimated_delivery
+  FROM tensile-spirit-350306.target_sql.orders
+  WHERE order_status = 'delivered'
+  GROUP BY order_id,customer_id
+)
+
+SELECT
+c.customer_state,
+AVG(t.diff_estimated_delivery) AS diff_avg_est_act
+FROM tensile-spirit-350306.target_sql.customers AS c INNER JOIN t on t.customer_id = c.customer_id
+GROUP BY c.customer_state
+ORDER BY diff_avg_est_act ASC
+LIMIT 5;
+
+# Analysis based on the payments:
+1.	Find the month-on-month no. of orders placed using different payment types.
+
+SELECT 
+EXTRACT(Month FROM o.order_purchase_timestamp) AS Month_Num,
+FORMAT_TIMESTAMP('%B', o.order_purchase_timestamp) AS Month_Name,
+COUNT(o.order_id) AS order_cnt,
+p.payment_type
+FROM tensile-spirit-350306.target_sql.orders AS o INNER JOIN tensile-spirit-350306.target_sql.payments AS p
+ON o.order_id = p.order_id
+GROUP BY Month_Num,Month_Name,payment_type
+ORDER BY Month_Num;
+
+2.	Find the no. of orders placed based on the payment installments that have been paid.
+
+SELECT 
+p.payment_installments,
+COUNT(o.order_id) AS order_cnt
+FROM tensile-spirit-350306.target_sql.orders AS o INNER JOIN tensile-spirit-350306.target_sql.payments AS p
+ON o.order_id=p.order_id
+GROUP BY p.payment_installments
+ORDER BY p.payment_installments;
+
+
+
+
+
+
+
+
+
+
+
+
