@@ -27,7 +27,7 @@ ________________________________________________________________________________
 # The Schema
 ![image](https://github.com/AnuragAnalyst/Target_SQL_Business_Case/assets/92114108/9d08b8ba-c31f-4553-b8bc-3bd0fbcb6ed3)
 
-# Tools Use
+# Tools Used
 SQL, BigQuery
 
 # Business Insights
