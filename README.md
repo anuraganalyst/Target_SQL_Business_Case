@@ -27,6 +27,9 @@ ________________________________________________________________________________
 # The Schema
 ![image](https://github.com/AnuragAnalyst/Target_SQL_Business_Case/assets/92114108/9d08b8ba-c31f-4553-b8bc-3bd0fbcb6ed3)
 
+# Tools Use
+SQL, BigQuery
+
 # Business Insights
 ![image](https://github.com/AnuragAnalyst/Target_SQL_Business_Case/assets/92114108/5bb5de27-9958-4ea1-a53d-2995323ff29c)
 There is an inclined trend in customer orders placed over time. 
